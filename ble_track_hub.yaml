@@ -1,0 +1,14 @@
+esphome:
+  name: ble-tracker-hub
+    
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+    
+esp32_ble_tracker:
+  on_ble_advertise:
+    - then:
+
+logger:
+  level: VERY_VERBOSE
