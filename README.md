@@ -11,6 +11,30 @@ ESPHome implementation to pull data from BT-enabled Renogy devices
 
   - renogy_rover_utilities.h contains methods to do the payload creation and response parsing for communicating with the BT device. This file shouldn't require any editing in order to get things running.
 
+### Configuration Setup
+
+Before compiling, you'll need to create a `secrets.yaml` file in the project root with your specific configuration:
+
+```yaml
+# WiFi Configuration
+wifi_ssid: "Your_WiFi_Name"
+wifi_password: "Your_WiFi_Password"
+
+# MQTT Configuration (for rover configuration)
+mqtt_host: "192.168.1.100"  # Your MQTT broker IP
+mqtt_username: "your_mqtt_user"
+mqtt_password: "your_mqtt_password"
+
+# Renogy device MAC addresses
+renogy_rover_ble_mac: "AA:BB:CC:DD:EE:FF"  # Your Rover BT device MAC
+# Add additional MAC addresses for battery monitoring as needed
+```
+
+**Finding your device MAC address:**
+- Use a Bluetooth scanner app on your phone
+- Look for devices named "BT-TH-" followed by numbers
+- Copy the MAC address (format: AA:BB:CC:DD:EE:FF)
+
 ### Getting started with ESPHome
 If you don't yet have any experience with ESPHome, I recommend looking here for guidance: https://esphome.io/guides/getting_started_command_line
 I use the command line to compile and upload my configurations to my ESP32 board(s) and therefore don't have any experience with the ESPHome web interface (glancing through the docs, I don't know how to use header files like `renogy_battery_utilities.h` that are used in this project, so the CLI is probably your best bet.)
