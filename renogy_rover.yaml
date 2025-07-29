@@ -2,7 +2,25 @@ esphome:
   name: renogy-rover
   includes: 
     - renogy_rover_utilities.h
-    
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: wake_display
+
+globals:
+  - id: last_display_interaction
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+script:
+  - id: wake_display
+    then:
+      - lambda: |-
+          id(oled_display).turn_on();
+          id(last_display_interaction) = millis();
+      - display.page.show: status_page
+
 esp32:
   board: heltec_wifi_kit_32
   framework:
@@ -66,12 +84,10 @@ wifi:
     then:
       - lambda: 'id(wifi_status).publish_state("Connected");'
       - logger.log: "WiFi connected"
-      - display.page.show: status_page
   on_disconnect:
     then:
       - lambda: 'id(wifi_status).publish_state("Disconnected");'
       - logger.log: "WiFi disconnected"
-      - display.page.show: status_page
 
 ota:
   platform: esphome
@@ -90,12 +106,10 @@ mqtt:
     then:
       - lambda: 'id(mqtt_status).publish_state("Connected");'
       - logger.log: "MQTT connected"
-      - display.page.show: status_page
   on_disconnect:
     then:
       - lambda: 'id(mqtt_status).publish_state("Disconnected");'
       - logger.log: "MQTT disconnected"
-      - display.page.show: status_page
     
 esp32_ble_tracker:
   scan_parameters:
@@ -294,14 +308,12 @@ ble_client:
         - logger.log: 
             format: "BLE client connected to rover"
             level: DEBUG
-        - display.page.show: status_page
     on_disconnect:
       then:
         - lambda: 'id(ble_status).publish_state("Disconnected");'
         - logger.log: 
             format: "BLE client disconnected from rover"
             level: DEBUG
-        - display.page.show: status_page
 
 interval:
   - interval: 5s
@@ -314,17 +326,27 @@ interval:
           value: !lambda |-
                     vector<uint8_t> request = GetRoverRequest();
                     return request;
-  
-  # Refresh OLED display every 10 seconds
-  - interval: 10s
+  - interval: 30s
     then:
-      - display.page.show: status_page
+      - lambda: |-
+          if (millis() - id(last_display_interaction) > 30000) {
+            id(oled_display).turn_off();
+          }
 
 binary_sensor:
   - platform: ble_presence
     mac_address: ${ble_mac_address}
     name: "Renogy BLE Presence Rover"
     entity_category: "DIAGNOSTIC"
+
+  # Button on GPIO0 (the "PRG" button on the Heltec board) to wake the display
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+    name: "Display Wake Button"
+    on_press:
+      - script.execute: wake_display
 
 # Note: Automation component removed due to ESPHome version compatibility
 # Display updates are handled by the 10-second interval timer
