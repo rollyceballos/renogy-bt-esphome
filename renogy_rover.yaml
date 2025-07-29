@@ -4,9 +4,55 @@ esphome:
     - renogy_rover_utilities.h
     
 esp32:
-  board: nodemcu-32s
+  board: heltec_wifi_kit_32
   framework:
     type: arduino
+
+# Heltec WiFi 32 board configuration
+i2c:
+  sda: 4
+  scl: 15
+  scan: true
+
+# OLED Display for status information
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    reset_pin: 16
+    id: oled_display
+    pages:
+      - id: status_page
+        lambda: |-
+          // Clear display
+          it.fill(COLOR_OFF);
+          
+          // WiFi Status
+          it.printf(0, 0, id(oled_font), "WiFi: %s", id(wifi_status).state.c_str());
+          
+          // BLE Status
+          it.printf(0, 12, id(oled_font), "BLE: %s", id(ble_status).state.c_str());
+          
+          // MQTT Status
+          it.printf(0, 24, id(oled_font), "MQTT: %s", id(mqtt_status).state.c_str());
+          
+          // Battery info
+          it.printf(0, 36, id(oled_font), "Batt: %.1fV %.0f%%", 
+                   id(battery_voltage).state, id(battery_percentage).state);
+          
+          // PV info
+          it.printf(0, 48, id(oled_font), "PV: %.1fV %.1fA", 
+                   id(pv_voltage).state, id(pv_current).state);
+          
+          // Load info
+          it.printf(0, 60, id(oled_font), "Load: %.1fV %.1fA", 
+                   id(load_voltage).state, id(load_current).state);
+
+# Font configuration for OLED
+font:
+  - file: "gfonts://Roboto"
+    id: oled_font
+    size: 12
 
 substitutions:
   # BLE MAC address loaded from secrets.yaml
@@ -16,12 +62,22 @@ substitutions:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  on_connect:
+    then:
+      - lambda: 'id(wifi_status).publish_state("Connected");'
+      - logger.log: "WiFi connected"
+      - display.page.show: status_page
+  on_disconnect:
+    then:
+      - lambda: 'id(wifi_status).publish_state("Disconnected");'
+      - logger.log: "WiFi disconnected"
+      - display.page.show: status_page
 
 ota:
   platform: esphome
 
 logger:
-  level: DEBUG
+  level: INFO
 
 # If you use Home Assistant please remove this `mqtt` section and uncomment the `api` component!
 # The native API has many advantages over MQTT: https://esphome.io/components/api.html#advantages-over-mqtt
@@ -30,6 +86,16 @@ mqtt:
   username: !secret mqtt_username
   password: !secret mqtt_password
   id: mqtt_client
+  on_connect:
+    then:
+      - lambda: 'id(mqtt_status).publish_state("Connected");'
+      - logger.log: "MQTT connected"
+      - display.page.show: status_page
+  on_disconnect:
+    then:
+      - lambda: 'id(mqtt_status).publish_state("Disconnected");'
+      - logger.log: "MQTT disconnected"
+      - display.page.show: status_page
     
 esp32_ble_tracker:
   scan_parameters:
@@ -47,6 +113,19 @@ text_sensor:
   - platform: template
     name: "Rover Charging Status"
     id: charging_status
+
+  # Status sensors for OLED display
+  - platform: template
+    name: "WiFi Status"
+    id: wifi_status
+
+  - platform: template
+    name: "BLE Status"
+    id: ble_status
+
+  - platform: template
+    name: "MQTT Status"
+    id: mqtt_status
 
 sensor:
   - platform: template
@@ -211,17 +290,21 @@ ble_client:
     auto_connect: true 
     on_connect:
       then:
+        - lambda: 'id(ble_status).publish_state("Connected");'
         - logger.log: 
             format: "BLE client connected to rover"
             level: DEBUG
+        - display.page.show: status_page
     on_disconnect:
       then:
+        - lambda: 'id(ble_status).publish_state("Disconnected");'
         - logger.log: 
             format: "BLE client disconnected from rover"
             level: DEBUG
+        - display.page.show: status_page
 
 interval:
-  - interval: 30s
+  - interval: 5s
     then:
       - ble_client.ble_write: 
           characteristic_uuid: "FFD1"
@@ -231,12 +314,20 @@ interval:
           value: !lambda |-
                     vector<uint8_t> request = GetRoverRequest();
                     return request;
+  
+  # Refresh OLED display every 10 seconds
+  - interval: 10s
+    then:
+      - display.page.show: status_page
 
 binary_sensor:
   - platform: ble_presence
     mac_address: ${ble_mac_address}
     name: "Renogy BLE Presence Rover"
     entity_category: "DIAGNOSTIC"
+
+# Note: Automation component removed due to ESPHome version compatibility
+# Display updates are handled by the 10-second interval timer
 
 switch:
   - platform: template

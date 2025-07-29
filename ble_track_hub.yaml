@@ -11,4 +11,4 @@ esp32_ble_tracker:
     - then:
 
 logger:
-  level: VERY_VERBOSE
+  level: INFO

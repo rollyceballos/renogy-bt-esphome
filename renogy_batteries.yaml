@@ -201,7 +201,7 @@ ble_client:
 
 # every 30 seconds, pull each battery with a 5s delay between each one. todo: update these timings as needed
 interval:
-  - interval: 30s
+  - interval: 15s
     then:
       - ble_client.ble_write: 
           characteristic_uuid: "FFD1"
