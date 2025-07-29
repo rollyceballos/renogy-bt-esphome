@@ -1,15 +1,10 @@
 # renogy-bt-esphome
-ESPHome implementation to pull data from BT-enabled Renogy devices
+ESPHome implementation to pull data from a Renogy Rover solar charge controller using a Heltec WiFi Kit 32 board.
 
 ## Setup
-- renogy_batteries.yaml is configured to connect to a single Renogy BT device (currently tested on a BT-2 connected to five batteries in a daisy-chained configuration.) There are TODOs in the yaml that indicate places where updates should be made, or at least pertinent information for the user is available.
+- `renogy_rover.yaml` is configured to connect to a Renogy BT device (tested on a BT-2) and display real-time information on the Heltec WiFi Kit 32's onboard OLED screen.
 
-  - renogy_battery_utilities.h contains methods to do the payload creation and response parsing for communicating with the BT device. This file shouldn't require any editing in order to get things running.
-
-
-- renogy_rover.yaml is configured to connect to a Renogy BT device (tested on a BT-2.) There are TODOs in the yaml that indicate place where updates should be made.
-
-  - renogy_rover_utilities.h contains methods to do the payload creation and response parsing for communicating with the BT device. This file shouldn't require any editing in order to get things running.
+- `renogy_rover_utilities.h` contains methods to do the payload creation and response parsing for communicating with the BT device. This file shouldn't require any editing in order to get things running.
 
 ### Configuration Setup
 
@@ -20,14 +15,13 @@ Before compiling, you'll need to create a `secrets.yaml` file in the project roo
 wifi_ssid: "Your_WiFi_Name"
 wifi_password: "Your_WiFi_Password"
 
-# MQTT Configuration (for rover configuration)
+# MQTT Configuration
 mqtt_host: "192.168.1.100"  # Your MQTT broker IP
 mqtt_username: "your_mqtt_user"
 mqtt_password: "your_mqtt_password"
 
-# Renogy device MAC addresses
+# Renogy device MAC address
 renogy_rover_ble_mac: "AA:BB:CC:DD:EE:FF"  # Your Rover BT device MAC
-# Add additional MAC addresses for battery monitoring as needed
 ```
 
 **Finding your device MAC address:**
@@ -37,12 +31,12 @@ renogy_rover_ble_mac: "AA:BB:CC:DD:EE:FF"  # Your Rover BT device MAC
 
 ### Getting started with ESPHome
 If you don't yet have any experience with ESPHome, I recommend looking here for guidance: https://esphome.io/guides/getting_started_command_line
-I use the command line to compile and upload my configurations to my ESP32 board(s) and therefore don't have any experience with the ESPHome web interface (glancing through the docs, I don't know how to use header files like `renogy_battery_utilities.h` that are used in this project, so the CLI is probably your best bet.)
-Here are instructions to install ESPHome manually (which is what I did.) https://esphome.io/guides/installing_esphome
 
-Once that is done, you can run commands such as these from the root of this project:
-`esphome compile renogy_batteries.yaml` # (compiles without uploading, so you can test your changes without needing a board connected)
-`esphome run renogy_batteries.yaml` # (compiles and uploads to a connected board)
+Once ESPHome is installed, you can run commands such as these from the root of this project to compile and upload the firmware to your Heltec WiFi Kit 32 board:
+
+- `esphome compile renogy_rover.yaml` - Compiles the firmware so you can test your changes without needing a board connected.
+- `esphome run renogy_rover.yaml` - Compiles and uploads the firmware to a connected board.
+- `esphome logs renogy_rover.yaml` - View the logs from your device.
 
 ### Disclaimer
 

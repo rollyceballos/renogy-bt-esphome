@@ -4,59 +4,53 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an ESPHome implementation for connecting to Renogy Bluetooth-enabled solar charge controllers and battery management systems. The project provides two main configurations:
+This is an ESPHome implementation for connecting to a Renogy Rover solar charge controller. The project is specifically configured for a **Heltec WiFi Kit 32** board and uses its onboard OLED display to show real-time status information.
 
-1. **Battery monitoring** (`renogy_batteries.yaml`) - Connects to Renogy BT-2 devices to monitor multiple batteries in a daisy-chain configuration
-2. **Charge controller monitoring** (`renogy_rover.yaml`) - Connects to Renogy Rover charge controllers via BT-2 adapters
+The primary configuration is in `renogy_rover.yaml`.
 
 ## Architecture
 
 ### Core Components
 
-- **YAML configurations**: ESPHome device configurations that define sensors, BLE clients, and data collection intervals
-- **C++ utility headers**: Low-level protocol implementations for parsing Renogy device responses
-- **Bluetooth communication**: Uses ESP32 BLE client to communicate with Renogy devices over MODBUS-like protocol
+- **YAML Configuration**: The main ESPHome device configuration is `renogy_rover.yaml`. It defines sensors, the BLE client, the OLED display, and data collection logic.
+- **C++ Utility Header**: `renogy_rover_utilities.h` provides the low-level protocol implementation for parsing Renogy device responses and generating requests.
+- **Bluetooth Communication**: Uses the ESP32 BLE client to communicate with the Renogy device over a MODBUS-like protocol.
+- **OLED Display**: Utilizes the Heltec board's built-in SSD1306 OLED screen to display status.
 
 ### Key Files
 
-- `renogy_batteries.yaml` - ESPHome config for battery monitoring (supports multiple batteries)
-- `renogy_rover.yaml` - ESPHome config for charge controller monitoring  
-- `renogy_battery_utilities.h` - C++ functions for battery data parsing and request generation
-- `renogy_rover_utilities.h` - C++ functions for rover data parsing and request generation
-- `secrets.yaml` - Contains WiFi credentials, MQTT settings, and other sensitive configuration
+- `renogy_rover.yaml` - ESPHome config for Rover charge controller monitoring.
+- `renogy_rover_utilities.h` - C++ functions for Rover data parsing and request generation.
+- `secrets.yaml` - (User-created) Contains WiFi credentials, MQTT settings, and the Renogy device's BLE MAC address.
 
-### Communication Flow
+### Communication & Display Flow
 
-1. **BLE Connection**: ESP32 connects to Renogy device via BLE using configured MAC address
-2. **Data Requests**: Interval timers send MODBUS-style requests to specific BLE characteristics
-3. **Response Parsing**: C++ utility functions parse binary responses and extract sensor values  
-4. **Sensor Updates**: Parsed data is published to ESPHome template sensors
-5. **Home Assistant Integration**: Sensors are exposed via ESPHome API or MQTT
+1.  **BLE Connection**: The ESP32 connects to the Renogy Rover via BLE using the configured MAC address.
+2.  **Data Requests**: An interval timer sends MODBUS-style requests to the Rover every 5 seconds.
+3.  **Response Parsing**: C++ utility functions parse the binary responses and extract sensor values.
+4.  **Sensor Updates**: Parsed data is published to ESPHome template sensors.
+5.  **Status Updates**: WiFi, BLE, and MQTT connection statuses are updated in the background.
+6.  **Screen Timeout**: The OLED display automatically turns off after 30 seconds of inactivity to prevent burn-in.
+7.  **Wake on Button Press**: Pressing the onboard "PRG" button (GPIO0) wakes the display and shows the latest data.
 
 ## Development Commands
 
-This is an ESPHome project with no traditional build system. Development workflow:
+This is an ESPHome project. The development workflow uses the ESPHome command-line tool:
 
-### ESPHome Commands
 ```bash
 # Validate configuration
-esphome config renogy_batteries.yaml
 esphome config renogy_rover.yaml
 
 # Compile firmware
-esphome compile renogy_batteries.yaml
 esphome compile renogy_rover.yaml
 
 # Upload to device (first time via USB)
-esphome upload renogy_batteries.yaml
-esphome upload renogy_rover.yaml
+esphome run renogy_rover.yaml
 
 # Monitor logs
-esphome logs renogy_batteries.yaml
 esphome logs renogy_rover.yaml
 
 # Clean build files
-esphome clean renogy_batteries.yaml
 esphome clean renogy_rover.yaml
 ```
 
@@ -64,40 +58,28 @@ esphome clean renogy_rover.yaml
 
 ### Required Configuration Updates
 
-**Battery Configuration (`renogy_batteries.yaml`)**:
-- Update `ble_mac_address` substitution with actual device MAC
-- Configure `battery_id_1`, `battery_id_2`, `battery_id_3` for your battery setup
-- Add/remove battery sensor definitions as needed
-- Update WiFi credentials in secrets.yaml
-
-**Rover Configuration (`renogy_rover.yaml`)**:
-- Update `ble_mac_address` substitution with actual device MAC
-- Configure MQTT broker settings in secrets.yaml
-- Update WiFi credentials in secrets.yaml
+**Rover Configuration (`renogy_rover.yaml` via `secrets.yaml`)**:
+- Create a `secrets.yaml` file in the root directory.
+- Update `wifi_ssid` and `wifi_password` with your network credentials.
+- Update `renogy_rover_ble_mac` with your device's actual MAC address.
+- Configure MQTT broker settings (`mqtt_host`, `mqtt_username`, `mqtt_password`).
 
 ### Protocol Details
 
-- **Battery Protocol**: Requests battery data using MODBUS function 0x03 (read) from register 0x13B2
-- **Rover Protocol**: Requests charging info from register 0x0100 (256 decimal) with 34 words
-- **BLE Services**: Uses service UUID `FFD0` for writing requests, `FFF0` for reading responses
-- **Data Collection**: 30-second intervals with 5-second delays between battery requests
+- **Rover Protocol**: Requests charging info from register 0x0100 (256 decimal) with 34 words.
+- **BLE Services**: Uses service UUID `FFD0` for writing requests and `FFF0` for reading responses.
+- **Data Collection**: A 5-second interval is used to request data from the Rover.
 
 ## Code Patterns
 
-### Adding New Battery Support
-1. Add battery ID to substitutions section
-2. Create template sensors for the new battery following existing patterns
-3. Update interval section to include new battery request with proper delay
-4. Utility functions automatically handle multiple batteries based on ID
-
 ### Extending Rover Data
-1. Add new template sensors with appropriate device classes
-2. Update `parse_charging_info()` function in `renogy_rover_utilities.h`
-3. Use `bytes_to_int()` helper for multi-byte values
-4. Use `parse_temperature()` for temperature sensors
+1.  Add new template sensors in `renogy_rover.yaml` with appropriate device classes.
+2.  Update the `HandleRoverData()` function in `renogy_rover_utilities.h` to parse the new data.
+3.  Use the `bytes_to_int()` helper for multi-byte values.
+4.  Update the display lambda in `renogy_rover.yaml` to show the new sensor data.
 
 ### Debugging
-- Enable DEBUG logging level in YAML configuration
-- Monitor BLE connection status via binary sensors
-- Check raw byte arrays in logs for protocol debugging
-- Use `ESP_LOGD` statements in C++ utilities for detailed parsing info
+- Enable `DEBUG` logging level in the `logger` section of `renogy_rover.yaml`.
+- Monitor the BLE connection status via the `Renogy BLE Presence Rover` binary sensor.
+- Check raw byte arrays in the logs for protocol debugging by uncommenting the log lines in the `lambda` for the `renogy_rover_esp32_sensor`.
+- Use `ESP_LOGD` statements in C++ utilities for detailed parsing info.
